@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${APP_NAME}-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ${INGRESS_HOST}
+      http:
+        paths:
+          # The Spring app has server.servlet.context-path=/notes, so
+          # endpoints live at /notes/api/notes/... Traefik forwards the
+          # path as-is — Spring strips the context-path internally.
+          # This /notes prefix beats the UI's "/" by most-specific match,
+          # so /notes/* goes here and everything else falls through.
+          - path: /notes
+            pathType: Prefix
+            backend:
+              service:
+                name: ${APP_NAME}-service
+                port:
+                  number: 80

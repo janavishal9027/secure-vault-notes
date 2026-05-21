@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${APP_NAME}-deployment
+  labels:
+    app: ${APP_NAME}
+spec:
+  replicas: ${REPLICAS}
+  selector:
+    matchLabels:
+      app: ${APP_NAME}
+  template:
+    metadata:
+      labels:
+        app: ${APP_NAME}
+    spec:
+      containers:
+        - name: ${APP_NAME}
+          image: ${IMAGE_REPO}:${IMAGE_TAG}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3213
+          env:
+            # Spring Boot relaxed binding maps these env vars onto the
+            # application.yml properties (e.g. SPRING_DATASOURCE_URL ->
+            # spring.datasource.url). The yml's hardcoded localhost values
+            # are only for local dev — in k3s we point at the LXD container's
+            # bridge IP for both Postgres and Kafka.
+            - name: SPRING_DATASOURCE_URL
+              value: ${DB_URL}
+            - name: SPRING_DATASOURCE_USERNAME
+              value: ${DB_USERNAME}
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: ${DB_PASSWORD}
+
+            # JWT signing — MUST match the value used by Authentication so
+            # tokens this service receives from the frontend validate. Same
+            # value must also be set on roles + ai-core-service.
+            - name: SECURITY_JWT_SECRET_KEY
+              value: ${JWT_SECRET}
+            - name: SECURITY_JWT_EXPIRATION_TIME
+              value: "${JWT_EXPIRATION}"
+
+            # Kafka bootstrap — used for note lifecycle events + summary
+            # request/response. The notes service ALSO consumes its own
+            # lifecycle events (since the AIGateway removal) to call
+            # ai-core-service /embed for indexing.
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: ${KAFKA_BOOTSTRAP_SERVERS}
+
+            # URL of the Authentication service used by the Feign client
+            # (AuthenticationClient) to validate Bearer tokens on every
+            # incoming request. Internal cluster DNS — not the public host.
+            - name: DIGITAL_APP_AUTHENTICATION
+              value: ${AUTHENTICATION_SERVICE_URL}
+
+            # ai-core-service handles embeddings for indexing notes; the
+            # notes service calls /embed on save and /embed/{id} on delete
+            # via the new NoteIndexerConsumer. Internal cluster DNS.
+            - name: AI_CORE_BASE_URL
+              value: ${AI_CORE_BASE_URL}
+
+            # ai-worker handles summarization. The notes service's
+            # SummaryRequestConsumer posts to /summarize when the user
+            # asks for an AI summary. Internal cluster DNS.
+            - name: AI_WORKER_BASE_URL
+              value: ${AI_WORKER_BASE_URL}
+
+            # Whisper key for voice-to-text transcription. Plain empty
+            # string if unset — the transcription endpoint will return
+            # a 500 with a clear "key not configured" message instead of
+            # failing at JVM boot.
+            - name: OPENAI_API_KEY
+              value: ${OPENAI_API_KEY}
+
+            - name: SWAGGER_ENABLED
+              value: "${SWAGGER_ENABLED}"
+
+            # Cap the JVM heap so requests/limits below are honored.
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC"
+
+          readinessProbe:
+            tcpSocket:
+              port: 3213
+            initialDelaySeconds: 25
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 3213
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            # Notes service runs Hibernate + Kafka consumer + multipart
+            # audio uploads (25MB), so headroom is a bit higher than auth.
+            requests:
+              cpu: "150m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"

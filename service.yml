@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${APP_NAME}-service
+  labels:
+    app: ${APP_NAME}
+spec:
+  type: ClusterIP
+  selector:
+    app: ${APP_NAME}
+  ports:
+    - protocol: TCP
+      # Cluster-internal callers (Authentication's Feign client, ai-core-
+      # service's webhook back, etc.) reach this on port 80 → 3213.
+      # The ingress targets port 80 below so external requests have the
+      # same shape as internal ones.
+      port: 80
+      targetPort: 3213

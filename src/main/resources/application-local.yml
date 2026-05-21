@@ -1,0 +1,69 @@
+spring:
+  application:
+    name: notes
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/digital-notes?currentSchema=secure-vault
+    username: postgres
+    password: Vittu
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    show-sql: true
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notes-service
+
+
+
+  jwt:
+    secret-key: 3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b
+    expiration-time: 600000
+
+
+server:
+  port: 3213
+  servlet:
+    context-path: /notes
+
+springdoc:
+  swagger-ui:
+    path: /swagger.html
+
+digital:
+  app:
+    authentication: http://localhost:3211/authentication
+
+ai:
+  core:
+    base-url: http://localhost:8001
+  worker:
+    base-url: http://localhost:8000
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+  transcription:
+    url: https://api.openai.com/v1/audio/transcriptions
+    model: whisper-1
+    max-file-size-mb: 25
+
+
+logging:
+  level:
+    org.apache.kafka.clients.NetworkClient: ERROR
+    org.apache.kafka.clients.Metadata: ERROR
+    org.apache.kafka.clients.consumer.internals.ConsumerCoordinator: WARN
+
