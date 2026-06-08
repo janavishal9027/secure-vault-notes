@@ -1,10 +1,9 @@
 package com.application.notes.configuration;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -16,6 +15,12 @@ import java.util.List;
 
 @Configuration
 public class CorsConfiguration {
+
+    // Comma-separated list of allowed browser origins. Defaults to the local
+    // dev UI; in the cluster set APP_CORS_ALLOWED_ORIGINS to the public UI
+    // origin(s), e.g. https://secure-vault-dev.cntrlflix.com
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private List<String> allowedOrigins;
 
     @Bean
     public ModelMapper mapper() {
@@ -32,7 +37,7 @@ public class CorsConfiguration {
         org.springframework.web.cors.CorsConfiguration cfg =
                 new org.springframework.web.cors.CorsConfiguration();
         cfg.setAllowCredentials(true);
-        cfg.setAllowedOrigins(List.of("http://localhost:3000"));
+        cfg.setAllowedOrigins(allowedOrigins);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         cfg.setExposedHeaders(List.of("Authorization"));
@@ -47,7 +52,7 @@ public class CorsConfiguration {
         org.springframework.web.cors.CorsConfiguration cfg =
                 new org.springframework.web.cors.CorsConfiguration();
         cfg.setAllowCredentials(true);
-        cfg.setAllowedOrigins(List.of("http://localhost:3000"));
+        cfg.setAllowedOrigins(allowedOrigins);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         cfg.setExposedHeaders(List.of("Authorization"));
@@ -62,7 +67,7 @@ public class CorsConfiguration {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000")
+                        .allowedOrigins(allowedOrigins.toArray(new String[0]))
                         .allowedHeaders("Authorization", "Content-Type", "Accept")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .exposedHeaders("Authorization")
@@ -70,7 +75,4 @@ public class CorsConfiguration {
             }
         };
     }
-
-
-
 }
