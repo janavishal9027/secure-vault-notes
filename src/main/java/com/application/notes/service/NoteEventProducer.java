@@ -62,21 +62,37 @@ public class NoteEventProducer {
                 .occurredAt(Instant.now())
                 .build();
 
-        kafkaTemplate.send(KafkaTopics.NOTES_SUMMARY_REQUEST, event.getNoteId(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.warn("failed to publish summary-requested event for {}: {}", event.getNoteId(), ex.getMessage());
-                    }
-                });
+        safeSend(KafkaTopics.NOTES_SUMMARY_REQUEST, event.getNoteId(), event,
+                "summary-requested event");
     }
 
     private void publishLifecycle(NoteEvent event) {
 
-        kafkaTemplate.send(KafkaTopics.NOTES_LIFECYCLE, event.getNoteId(), event)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.warn("failed to publish note lifecycle event {} for {}: {}", event.getEventType(), event.getNoteId(), ex.getMessage());
-                    }
-                });
+        safeSend(KafkaTopics.NOTES_LIFECYCLE, event.getNoteId(), event,
+                "note lifecycle event " + event.getEventType());
+    }
+
+    /**
+     * Publishes an event without ever letting a broker problem fail the caller.
+     *
+     * These events are fire-and-forget indexing/summary signals. {@code kafkaTemplate.send()}
+     * blocks up to {@code max.block.ms} (5s) fetching producer metadata and throws
+     * SYNCHRONOUSLY — wrapped by Spring as {@code KafkaException("Send failed")} — when the
+     * broker is unreachable. Left uncaught, that turns an ordinary note save/update/delete
+     * into a 500. We catch it here so the user's note operation always succeeds; the event is
+     * simply dropped (and logged) until the broker is reachable again. The {@code whenComplete}
+     * callback still handles the async (post-buffer) delivery failures.
+     */
+    private void safeSend(String topic, String key, Object event, String description) {
+        try {
+            kafkaTemplate.send(topic, key, event)
+                    .whenComplete((result, ex) -> {
+                        if (ex != null) {
+                            log.warn("async failure publishing {} for {}: {}", description, key, ex.getMessage());
+                        }
+                    });
+        } catch (Exception ex) {
+            log.error("failed to publish {} for {} (broker unreachable?): {}", description, key, ex.getMessage());
+        }
     }
 }
