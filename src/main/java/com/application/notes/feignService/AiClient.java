@@ -16,8 +16,9 @@ import java.util.Map;
  * services. Replaces the old AIGateway hop.
  *
  * <ul>
- *   <li>ai-core-service (default port 8001): embeddings, search, recommendations, chat.</li>
- *   <li>ai-worker (default port 8000): summarisation.</li>
+ *   <li>ai-core-service (default port 8001): embeddings, search, recommendations,
+ *       chat, and summarisation (merged in from the former standalone
+ *       ai-worker service).</li>
  * </ul>
  *
  * Only the methods invoked from Kafka consumers live here today; add new ones
@@ -31,9 +32,6 @@ public class AiClient {
 
     @Value("${ai.core.base-url:http://localhost:8001}")
     private String aiCoreBaseUrl;
-
-    @Value("${ai.worker.base-url:http://localhost:8000}")
-    private String aiWorkerBaseUrl;
 
     public AiClient(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -61,7 +59,7 @@ public class AiClient {
     }
 
     /**
-     * Calls ai-worker for summarisation. Returns the summary text.
+     * Calls ai-core-service for summarisation. Returns the summary text.
      * Throws on transport or upstream failure; let the caller decide whether to
      * publish a FAILED summary event.
      */
@@ -75,16 +73,16 @@ public class AiClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         Map<?, ?> response = restTemplate.postForObject(
-                aiWorkerBaseUrl + "/summarize",
+                aiCoreBaseUrl + "/summarize",
                 new HttpEntity<>(body, headers),
                 Map.class
         );
         if (response == null) {
-            throw new IllegalStateException("ai-worker returned empty response");
+            throw new IllegalStateException("ai-core returned empty response");
         }
         Object summary = response.get("summary");
         if (summary == null) {
-            throw new IllegalStateException("ai-worker response missing summary field");
+            throw new IllegalStateException("ai-core response missing summary field");
         }
         return summary.toString();
     }

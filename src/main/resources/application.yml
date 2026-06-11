@@ -48,8 +48,6 @@ digital:
 ai:
   core:
     base-url: ${AI_CORE_BASE_URL}
-  worker:
-    base-url: ${AI_WORKER_BASE_URL}
 
 openai:
   api-key: ${OPENAI_API_KEY}
